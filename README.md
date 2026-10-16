@@ -81,6 +81,8 @@ externo durante o desenvolvimento. O endereço interno real deve ser copiado do 
 
 ## Contrato
 
+O catálogo compartilhado e a autorização de curadores estão descritos em [CATALOG.md](CATALOG.md), incluindo o comando administrativo para habilitar uma conta.
+
 Veja [SYNC.md](SYNC.md). Conflitos retornam 409, sem substituir alterações de outro
 dispositivo. Esta primeira versão não faz mesclagem automática de edições concorrentes.
 

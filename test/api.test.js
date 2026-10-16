@@ -17,6 +17,41 @@ async function request(path, body, auth = token, method = body === undefined ? '
   return { status: response.status, body: await response.json() };
 }
 const send = operations => request('/v1/sync', { operations });
+test('catalog curator permissions, hierarchy, editing conflicts and pagination', async () => {
+  const artist = {kind:'artist',id:randomUUID(),version:0,name:'Artista de teste',biography:'Biografia'};
+  assert.equal((await request('/v1/catalog',artist,null)).status,401);
+  assert.equal((await request('/v1/catalog',artist)).status,403);
+  await db.query('UPDATE accounts SET is_curator=true WHERE id=$1',[accountId]);
+  assert.equal((await request('/v1/catalog',artist)).status,200);
+  let page = await request('/v1/catalog?kind=artist');
+  assert.equal(page.body.curator,true);
+  assert.equal(page.body.items.find(a=>a.id===artist.id).name,artist.name);
+  page = await request('/v1/catalog?kind=artist',undefined,otherToken);
+  assert.equal(page.body.curator,false);
+  assert.ok(page.body.items.some(a=>a.id===artist.id));
+  assert.equal((await request('/v1/catalog',{...artist,version:1,name:'Mudança proibida'},otherToken)).status,403);
+  const album = {kind:'album',id:randomUUID(),version:0,artistId:artist.id,title:'Disco',releaseYear:2026,genre:'Rock'};
+  assert.equal((await request('/v1/catalog',{...album,artistId:randomUUID()})).status,404);
+  assert.equal((await request('/v1/catalog',album)).status,200);
+  const track = {kind:'track',id:randomUUID(),version:0,albumId:album.id,title:'Faixa',discNumber:1,trackNumber:1,durationSeconds:200,file:{id:'a'.repeat(64),name:'Faixa.mp3',size:2048}};
+  assert.equal((await request('/v1/catalog',track)).status,200);
+  assert.equal((await request('/v1/catalog',{...track,id:randomUUID()})).status,409);
+  assert.equal((await request('/v1/catalog',{...track,id:randomUUID(),trackNumber:2,file:{...track.file,id:'invalid'}})).status,400);
+  assert.equal((await request('/v1/catalog',{...track,version:1,title:'Faixa editada'})).body.item.version,2);
+  assert.equal((await request('/v1/catalog',{...track,version:1,title:'Edição antiga'})).status,409);
+  assert.equal((await request('/v1/catalog',{...track,version:2,albumId:randomUUID()})).status,400);
+  assert.equal((await request(`/v1/catalog?kind=track&parent=${album.id}`)).body.items[0].title,'Faixa editada');
+  assert.equal((await request('/v1/catalog',{...album,version:1,title:'Disco editado'})).body.item.version,2);
+  assert.equal((await request('/v1/catalog',{...artist,version:1,name:'Artista editado'})).body.item.version,2);
+  assert.equal((await request(`/v1/catalog?kind=album&parent=${artist.id}`)).body.items[0].title,'Disco editado');
+  assert.equal((await request('/v1/catalog?kind=artist&q=ARTISTA%20EDITADO')).body.items.length,1);
+  for(let i=0;i<51;i++) await db.query('INSERT INTO catalog_artists(id,name,updated_by) VALUES($1,$2,$3)',[randomUUID(),`Pagination ${String(i).padStart(2,'0')}`,accountId]);
+  page = await request('/v1/catalog?kind=artist&q=Pagination');
+  assert.equal(page.body.items.length,50); assert.equal(page.body.nextOffset,50);
+  assert.equal((await request('/v1/catalog?kind=artist&q=Pagination&offset=50')).body.items.length,1);
+  await db.query('UPDATE accounts SET is_curator=false WHERE id=$1',[accountId]);
+  assert.equal((await request('/v1/catalog',{...artist,version:2})).status,403);
+});
 test('discovery requires authentication and returns bounded presence without account data', async () => {
   assert.equal((await request('/v1/network/heartbeat', {}, null)).status, 401);
   const peerId = '12D3KooW' + 'A'.repeat(44);

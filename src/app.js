@@ -3,6 +3,7 @@ import { ZodError } from 'zod';
 import { digest, login } from './auth.js';
 import { problem, pull, push } from './sync.js';
 import { createDiscovery } from './discovery.js';
+import { catalogRead, catalogWrite } from './catalog.js';
 
 export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
   const buckets = new Map();
@@ -64,6 +65,11 @@ export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
       const session = (await db.query('SELECT account_id,device_id FROM sessions WHERE token_hash=$1 AND expires_at>now()', [tokenHash])).rows[0];
       if (!session) throw problem(401, 'Sessão expirada ou inválida.');
       rate(`account:${session.account_id}`, 120);
+      if (route === 'GET /v1/catalog') { send(200, await catalogRead(db, session.account_id, url.searchParams)); return; }
+      if (route === 'POST /v1/catalog') {
+        rate(`catalog-write:${session.account_id}`, 30);
+        send(200, await catalogWrite(db, session.account_id, await readJson(req))); return;
+      }
       if (route === 'POST /v1/network/heartbeat') {
         rate(`presence:${session.account_id}:${session.device_id}`, 3);
         send(200, discovery.heartbeat(session, await readJson(req))); return;
