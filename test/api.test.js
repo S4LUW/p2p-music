@@ -17,6 +17,15 @@ async function request(path, body, auth = token, method = body === undefined ? '
   return { status: response.status, body: await response.json() };
 }
 const send = operations => request('/v1/sync', { operations });
+test('discovery requires authentication and returns bounded presence without account data', async () => {
+  assert.equal((await request('/v1/network/heartbeat', {}, null)).status, 401);
+  const peerId = '12D3KooW' + 'A'.repeat(44);
+  const presence = await request('/v1/network/heartbeat', { peerId, protocolVersion: 3, addresses: [`/ip4/127.0.0.1/tcp/41001/p2p/${peerId}`] });
+  assert.equal(presence.status, 200);
+  assert.equal(presence.body.activePeers, 1);
+  assert.deepEqual(presence.body.peers, []);
+  assert.equal(presence.body.ttlSeconds, 180);
+});
 before(async () => {
   if (process.env.TEST_DATABASE_URL) {
     const schema = `test_${randomUUID().replaceAll('-', '')}`;
