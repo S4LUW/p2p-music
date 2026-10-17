@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { problem } from './sync.js';
+import { catalogSearch } from './catalog-search.js';
 
 const text = z.string().trim().min(1).max(200);
 const base = { id: z.uuid(), version: z.number().int().min(0).max(2147483646) };
@@ -15,9 +16,10 @@ const queries = {
  track: `SELECT id,album_id AS "albumId",title,disc_number AS "discNumber",track_number AS "trackNumber",duration_seconds AS "durationSeconds",json_build_object('id',file_hash,'name',file_name,'size',file_size) AS file,version FROM catalog_tracks`,
 };
 export async function catalogRead(db, accountId, params) {
-  const kind = z.enum(['artist','album','track']).parse(params.get('kind') ?? 'artist');
+  const kind = z.enum(['artist','album','track','search']).parse(params.get('kind') ?? 'artist');
   const offset = z.coerce.number().int().min(0).max(100000).parse(params.get('offset') ?? 0);
   const q = z.string().trim().max(100).parse(params.get('q') ?? '');
+  if (kind === 'search') return catalogSearch(db, q, offset);
   const parent = kind === 'artist' ? null : z.uuid().parse(params.get('parent'));
   const curator = (await db.query('SELECT is_curator FROM accounts WHERE id=$1',[accountId])).rows[0]?.is_curator === true;
   const filter = kind === 'artist' ? `WHERE ($1='' OR position(lower($1) in lower(name))>0) ORDER BY lower(name),id` : kind === 'album' ? 'WHERE artist_id=$1 ORDER BY release_year DESC NULLS LAST,title,id' : 'WHERE album_id=$1 ORDER BY disc_number,track_number,id';

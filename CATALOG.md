@@ -19,7 +19,7 @@ Para revogar, execute novamente com `CURATOR_ENABLED=false`. Este comando é adm
 - **Álbum:** incluir/editar título, ano opcional e gênero. Clique no cartão para abrir as faixas.
 - **Música:** incluir/editar título, disco, número da faixa, duração opcional em segundos e arquivo MP3. Use um arquivo compartilhado ou selecione um arquivo pelo formulário; o núcleo calcula o SHA-256.
 - Publicações ficam visíveis imediatamente para todas as contas autenticadas, pela página **Catálogo**. Todos os curadores autorizados podem editar o catálogo compartilhado. Não há exclusão, rascunhos ou aprovação editorial nesta etapa.
-- Artistas têm busca por nome; páginas de artistas, álbuns e faixas retornam até 50 itens. A busca inicial usa correspondência literal, sem diferenciar maiúsculas, no nome do artista; busca global de músicas e álbuns fica para outra etapa. Imagens são marcadores com iniciais, sem hospedagem de capas nesta versão.
+- A busca global consulta nomes de artistas e títulos de álbuns e músicas, com trechos literais e sem diferenciar maiúsculas ou acentos usuais do português. Páginas retornam até 50 itens. Imagens são marcadores com iniciais, sem hospedagem de capas nesta versão.
 - A página de álbum permite adicionar músicas às playlists e procurar o SHA-256 em até 32 peers já conectados (quatro consultas simultâneas) para tocar/adicionar à fila. Isso não implementa ainda um índice global de fontes. A ausência de fonte não remove o cadastro.
 
 ## Arquivos e disponibilidade
@@ -37,3 +37,10 @@ Trocar o arquivo de uma faixa altera a referência no catálogo; playlists já s
 UUID é criado pelo desktop e conservado durante uma tentativa: repetir uma criação após perda de resposta gera conflito, não uma segunda música. Nesse caso, atualize a lista antes de tentar novamente. Cadastros exigem internet, sem fila offline de publicação nesta versão. Tokens permanecem no núcleo Rust e não são enviados ao React.
 
 Há limite de 30 escritas/minuto/conta além dos limites gerais. Consultas são parametrizadas, textos limitados e arquivos limitados a 100 MiB. A migration é transacional e idempotente através do registro de migrations.
+
+
+### Busca global autenticada
+
+`GET /v1/catalog?kind=search&q=coracao&offset=0` retorna `{items,nextOffset}`. Cada item tem `kind` e o artista; álbuns incluem `album`, músicas incluem `album` e `track` com a referência SHA256. Não exige permissão de curador.
+
+Termos menores que 2 caracteres retornam uma lista vazia; máximo de 100 caracteres. Correspondências exatas precedem prefixos e trechos internos, com desempate estável e páginas de 50 itens. Caracteres `%` e `_` são literais, não curingas. Usa SQL parametrizado e não requer extensão ou migração de banco. A busca por trecho percorre metadados; um índice textual específico poderá ser adicionado quando o volume do catálogo exigir.
