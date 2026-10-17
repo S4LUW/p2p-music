@@ -2,9 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createDiscovery } from '../src/discovery.js';
 const hash = 'a'.repeat(64);
+const unheardHash = 'b'.repeat(64);
 const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 const session = i => ({ account_id: 'account', device_id: String(i) });
 const body = (i, extra = {}) => { const peerId = '12D3KooW' + letters[i].repeat(44); return { peerId, protocolVersion: 3, addresses: [`/ip4/127.0.0.1/tcp/41001/p2p/${peerId}`], ...extra }; };
+test('a listener already sharing one song receives the other unheard song', () => {
+  let time = 0; const d = createDiscovery({ now: () => time });
+  d.heartbeat(session(0), body(0, { inventory: [[hash, 1000], [unheardHash, 2000]] }));
+  d.heartbeat(session(1), body(1, { inventory: [[hash, 1000]], replicationReady: true }));
+  time = 65000;
+  const result = d.heartbeat(session(1), body(1, { replicationReady: true }));
+  assert.equal(result.replication.id, unheardHash);
+  assert.equal(result.replication.peerId, body(0).peerId);
+  assert.equal(result.providerCounts[hash], 2);
+  assert.equal(result.providerCounts[unheardHash], 1);
+});
 test('replication caps source concurrency, reserves slots, renews and expires leases', () => {
   let time = 0; const d = createDiscovery({ now: () => time });
   d.heartbeat(session(0), body(0, { inventory: [[hash, 1000]] }));
