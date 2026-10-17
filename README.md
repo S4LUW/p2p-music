@@ -7,14 +7,12 @@ com o desktop. Entradas têm UUID próprio para permitir a mesma faixa repetida.
 
 ## Estado desta entrega
 
-Implementados: sessões revogáveis por dispositivo, comandos administrativos de
-criação de contas, playlists ordenadas, alterações em lotes atômicos, controle de
-versão, reenvio idempotente, sincronização incremental paginada e exclusão recuperável.
+Implementados: cadastro pelo desktop com e-mail e senha, sessões revogáveis por
+dispositivo, playlists sincronizadas com SQLite/outbox no cliente, catálogo,
+descoberta de peers e coordenação de replicação cooperativa de músicas.
 
-Ainda não implementados: tela de login/playlist no desktop, banco SQLite e outbox
-do cliente, cadastro público, recuperação de senha/email, localização de peers
-por hash, biblioteca cooperativa e rotina operacional de backup.
-A fila de reprodução atual do desktop não foi modificada nesta entrega.
+Recuperação de senha, confirmação de e-mail e rotina operacional de backup ainda
+não estão implementadas. O cadastro não verifica a posse do endereço informado.
 
 ## Desenvolvimento
 
@@ -39,9 +37,19 @@ Arquivos `.env` não são carregados automaticamente. Para uso local opcional:
 `node --env-file=.env scripts/migrate.js` e `node --env-file=.env src/server.js`.
 Não desabilite a verificação de certificados para conexões TLS externas.
 
-## Contas de teste
+## Cadastro e sessões
 
-Não há registro público nesta versão. No console administrativo do serviço,
+O aplicativo oferece **Criar conta** com somente e-mail e senha (12–256 caracteres).
+`POST /v1/auth/register` recebe `{ "email": "...", "password": "...", "deviceId": "UUID" }`.
+O desktop gera o identificador de dispositivo automaticamente. E-mails são normalizados
+com trim e minúsculas; a senha mantém seu valor exato e é armazenada com scrypt e salt.
+O cadastro retorna **201** com `{ token, expiresAt, accountId }` e já inicia a sessão.
+Conta e sessão são criadas na mesma transação; novos usuários não são curadores.
+Campos extras são rejeitados, inclusive permissões. E-mail duplicado retorna **409**,
+sem substituir conta, senha ou sessões existentes; nesse caso, use Entrar.
+Não há envio de e-mail nesta etapa. Se a resposta se perder após o envio, tente fazer login.
+
+Para criar uma conta administrativamente no console do serviço,
 defina temporariamente `ACCOUNT_EMAIL` e `ACCOUNT_PASSWORD` (12–256 caracteres)
 e execute `npm run account:create`. Remova essas duas variáveis depois.
 Não envie senhas em commits, argumentos de comando ou mensagens do chat.
@@ -52,8 +60,7 @@ A resposta fornece token opaco, validade de sete dias e accountId.
 Use `Authorization: Bearer <token>`. Somente o hash do token fica no banco.
 Um novo login do mesmo dispositivo revoga o token anterior. São permitidas
 até 20 sessões ativas por conta. `POST /v1/auth/logout` revoga a sessão atual;
-`POST /v1/auth/logout-all` revoga todas. O desktop deverá guardar o token no
-armazenamento seguro do sistema, separado do SQLite.
+`POST /v1/auth/logout-all` revoga todas. O desktop guarda o token protegido pelo Windows (DPAPI), separado do SQLite; o token não é exposto à interface React.
 
 ## Implantação
 
@@ -68,7 +75,9 @@ externo durante o desenvolvimento. O endereço interno real deve ser copiado do 
 - 500 playlists por conta (incluindo excluídas), 1000 entradas por playlist.
 - Metadados: nome de playlist até 200 caracteres, arquivo até 255; MP3 até 100 MiB.
 - 120 requisições autenticadas por minuto/conta e 600 por minuto/endereço de socket.
-- Login: 20 por minuto/endereço e duas derivações de senha simultâneas por instância.
+- Login: 20 por minuto/endereço; cadastro: 5 por minuto/endereço (inclusive tentativas inválidas).
+  Login e cadastro compartilham o limite de duas derivações de senha simultâneas por instância.
+  Corpos de autenticação são limitados a 4 KiB; excesso de tentativas retorna 429 e Retry-After: 60.
   Atrás do proxy, o limite por socket pode ser compartilhado por todos os usuários.
   Não confiamos em X-Forwarded-For enviado pelo cliente. Antes de ampliar o piloto,
   configure limites na borda e uma política explícita de proxies confiáveis.
@@ -88,3 +97,9 @@ dispositivo. Esta primeira versão não faz mesclagem automática de edições c
 
 Fontes técnicas: [transações node-postgres](https://node-postgres.com/features/transactions),
 [PGlite](https://pglite.dev/docs/), [serviço App do EasyPanel](https://easypanel.io/docs/services/app).
+
+## Publicação do cadastro
+
+Atualize a API no GitHub e faça o deploy no EasyPanel antes de distribuir o novo desktop.
+Não são necessárias novas variáveis de ambiente, serviço de e-mail ou migração de schema.
+Depois, recompile o desktop para incluir o comando nativo `account_register`.

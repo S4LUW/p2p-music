@@ -1,11 +1,11 @@
 import { createServer } from 'node:http';
 import { ZodError } from 'zod';
-import { digest, login } from './auth.js';
+import { digest, login, register } from './auth.js';
 import { problem, pull, push } from './sync.js';
 import { createDiscovery } from './discovery.js';
 import { catalogRead, catalogWrite } from './catalog.js';
 
-export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
+export function createApp(db, { origins = [], loginLimit = 20, registerLimit = 5 } = {}) {
   const buckets = new Map();
   const discovery = createDiscovery();
   let activeLogins = 0;
@@ -47,15 +47,16 @@ export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
       // Do not trust client-supplied X-Forwarded-For. The proxy can add a separate
       // edge limit; this conservative socket limit applies per instance/proxy.
       rate(`ip:${req.socket.remoteAddress}`, 600);
-      if (route === 'POST /v1/auth/login') {
-        rate(`login:${req.socket.remoteAddress}`, loginLimit);
-        const body = await readJson(req);
+      if (route === 'POST /v1/auth/login' || route === 'POST /v1/auth/register') {
+        const registering = route === 'POST /v1/auth/register';
+        rate(`${registering ? 'register' : 'login'}:${req.socket.remoteAddress}`, registering ? registerLimit : loginLimit);
+        const body = await readJson(req, 4096);
         if (activeLogins >= 2) throw problem(429, 'Autenticação ocupada. Tente novamente.');
         activeLogins++;
         try {
-          const result = await login(db, body);
+          const result = await (registering ? register : login)(db, body);
           if (!result) throw problem(401, 'Credenciais inválidas.');
-          send(200, result);
+          send(registering ? 201 : 200, result);
         } finally { activeLogins--; }
         return;
       }
