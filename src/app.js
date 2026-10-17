@@ -72,7 +72,7 @@ export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
       }
       if (route === 'POST /v1/network/heartbeat') {
         rate(`presence:${session.account_id}:${session.device_id}`, 3);
-        send(200, discovery.heartbeat(session, await readJson(req))); return;
+        send(200, discovery.heartbeat(session, await readJson(req, 1024 * 1024))); return;
       }
       if (route === 'GET /v1/me') { send(200, { accountId: session.account_id, deviceId: session.device_id }); return; }
       if (route === 'POST /v1/auth/logout') {
@@ -100,12 +100,12 @@ export function createApp(db, { origins = [], loginLimit = 20 } = {}) {
   return server;
 }
 
-async function readJson(req) {
+async function readJson(req, limit = 131072) {
   if (!/^application\/json(?:;|$)/i.test(req.headers['content-type'] ?? '')) throw problem(415, 'Envie application/json.');
   const chunks = []; let length = 0;
   for await (const chunk of req) {
     length += chunk.length;
-    if (length > 131072) throw problem(413, 'Corpo excede 128 KiB.');
+    if (length > limit) throw problem(413, 'Corpo excede o limite.');
     chunks.push(chunk);
   }
   try { return JSON.parse(Buffer.concat(chunks).toString('utf8')); }

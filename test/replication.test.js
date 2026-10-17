@@ -1,0 +1,41 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createDiscovery } from '../src/discovery.js';
+const hash = 'a'.repeat(64);
+const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+const session = i => ({ account_id: 'account', device_id: String(i) });
+const body = (i, extra = {}) => { const peerId = '12D3KooW' + letters[i].repeat(44); return { peerId, protocolVersion: 3, addresses: [`/ip4/127.0.0.1/tcp/41001/p2p/${peerId}`], ...extra }; };
+test('replication caps source concurrency, reserves slots, renews and expires leases', () => {
+  let time = 0; const d = createDiscovery({ now: () => time });
+  d.heartbeat(session(0), body(0, { inventory: [[hash, 1000]] }));
+  d.heartbeat(session(1), body(1, { inventory: [], replicationReady: true }));
+  time = 31000;
+  const task = d.heartbeat(session(1), body(1, { replicationReady: true })).replication;
+  assert.equal(task.id, hash);
+  assert.equal(d.heartbeat(session(2), body(2, { inventory: [], replicationReady: true })).replication.id, hash);
+  assert.equal(d.heartbeat(session(3), body(3, { inventory: [], replicationReady: true })).replication, null);
+  assert.equal(d.heartbeat(session(1), body(1, { receiving: hash })).replication, null);
+  d.heartbeat(session(1), body(1, { inventory: [[hash, 1000]] }));
+  assert.equal(d.heartbeat(session(3), body(3, { replicationReady: true })).replication.id, hash);
+  time = 400000;
+  assert.equal(d.heartbeat(session(4), body(4, { inventory: [], replicationReady: true })).replication, null);
+});
+test('sixteen sources stop preventive replication; inventory is retained and missing inventories requested', () => {
+  let time = 0; const d = createDiscovery({ now: () => time });
+  for (let i = 0; i < 16; i++) d.heartbeat(session(i), body(i, { inventory: [[hash, 1000]] }));
+  time = 31000;
+  assert.equal(d.heartbeat(session(16), body(16, { inventory: [], replicationReady: true })).replication, null);
+  const result = d.heartbeat(session(0), body(0));
+  assert.equal(result.providerCounts[hash], 16); assert.equal(result.inventoryRequired, false);
+  assert.equal(d.heartbeat(session(17), body(17)).inventoryRequired, true);
+  d.remove(session(15));
+  assert.equal(d.heartbeat(session(16), body(16, { replicationReady: true })).replication.id, hash);
+  assert.equal(d.heartbeat(session(17), body(17, { inventory: [], replicationReady: true })).replication, null);
+});
+test('invalid inventories and cross-account private sources cannot create tasks', () => {
+  let time = 0; const d = createDiscovery({ now: () => time });
+  d.heartbeat(session(0), body(0, { inventory: [[hash, 1000]] })); time = 31000;
+  assert.throws(() => d.heartbeat(session(0), body(0, { inventory: [[hash, -1]] })));
+  assert.equal(d.heartbeat(session(0), body(0)).providerCounts[hash], 1);
+  assert.equal(d.heartbeat({ account_id: 'other', device_id: '1' }, body(1, { inventory: [], replicationReady: true })).replication, null);
+});

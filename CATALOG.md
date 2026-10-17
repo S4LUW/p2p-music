@@ -24,7 +24,7 @@ Para revogar, execute novamente com `CURATOR_ENABLED=false`. Este comando é adm
 
 ## Arquivos e disponibilidade
 
-Somente metadados e SHA-256 ficam no PostgreSQL. Nenhum MP3 é enviado à API. A seleção compartilha o arquivo durante a sessão atual, como a Biblioteca existente. Ao reiniciar o desktop, selecione novamente os MP3 para disponibilizá-los; o catálogo permanece salvo no servidor. Selecionar e depois cancelar o formulário não desfaz esse compartilhamento, que pode ser encerrado pela Biblioteca.
+Somente metadados e SHA-256 ficam no PostgreSQL. Nenhum MP3 é enviado à API. O desktop lembra localmente os arquivos selecionados e, ao reabrir, verifica o SHA-256 antes de voltar a anunciá-los. Arquivos ausentes ou alterados não são restaurados. Versões antigas exigem selecionar os arquivos uma vez após atualizar, pois ainda não guardavam os caminhos. Selecionar e depois cancelar o formulário não desfaz esse compartilhamento, que pode ser encerrado pela Biblioteca. A restauração é uma função do desktop e não exige mudanças na API.
 
 Trocar o arquivo de uma faixa altera a referência no catálogo; playlists já salvas conservam o SHA-256 anterior. A duração é informada manualmente nesta etapa. A reprodução consulta outros peers; não há novo player para arquivos locais.
 

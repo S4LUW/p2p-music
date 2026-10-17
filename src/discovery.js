@@ -1,3 +1,4 @@
+import { createReplication } from './replication.js';
 import { isIPv4 } from 'node:net';
 import { randomInt } from 'node:crypto';
 import { problem } from './sync.js';
@@ -5,6 +6,7 @@ import { problem } from './sync.js';
 // Ephemeral presence: one API replica, bounded memory, no PostgreSQL writes.
 export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
   const peers = new Map();
+  const replication = createReplication(peers, now);
   function prune() {
     const time = now();
     for (const [id, peer] of peers) if (peer.expires <= time) peers.delete(id);
@@ -26,7 +28,8 @@ export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
     if (existing && existing.owner !== owner) throw problem(409, 'Identidade já registrada por outro dispositivo.');
     if (!existing && peers.size >= capacity) throw problem(429, 'Diretório ocupado.');
     for (const [id, peer] of peers) if (peer.owner === owner && id !== body.peerId) peers.delete(id);
-    peers.set(body.peerId, { owner, account: session.account_id, addresses, expires: now() + 180000 });
+    const inventory = replication.inventory(body, existing?.inventory);
+    peers.set(body.peerId, { owner, account: session.account_id, addresses, inventory, expires: now() + 180000 });
     const candidates = [];
     let seen = 0;
     for (const [peerId, peer] of peers) {
@@ -38,7 +41,7 @@ export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
       if (candidates.length < 8) candidates.push(candidate);
       else if (slot < 8) candidates[slot] = candidate;
     }
-    return { activePeers: peers.size, ttlSeconds: 180, peers: candidates };
+    return { activePeers: peers.size, ttlSeconds: 180, peers: candidates, ...replication.plan(body.peerId, body) };
   }
   function remove(session) {
     const owner = `${session.account_id}:${session.device_id}`;
