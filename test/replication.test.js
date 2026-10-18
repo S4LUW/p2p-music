@@ -44,10 +44,13 @@ test('sixteen sources stop preventive replication; inventory is retained and mis
   assert.equal(d.heartbeat(session(16), body(16, { replicationReady: true })).replication.id, hash);
   assert.equal(d.heartbeat(session(17), body(17, { inventory: [], replicationReady: true })).replication, null);
 });
-test('invalid inventories and cross-account private sources cannot create tasks', () => {
+test('invalid inventories are rejected and cross-account private sources can create tasks', () => {
   let time = 0; const d = createDiscovery({ now: () => time });
   d.heartbeat(session(0), body(0, { inventory: [[hash, 1000]] })); time = 31000;
   assert.throws(() => d.heartbeat(session(0), body(0, { inventory: [[hash, -1]] })));
   assert.equal(d.heartbeat(session(0), body(0)).providerCounts[hash], 1);
-  assert.equal(d.heartbeat({ account_id: 'other', device_id: '1' }, body(1, { inventory: [], replicationReady: true })).replication, null);
+  const task = d.heartbeat({ account_id: 'other', device_id: '1' }, body(1, { inventory: [], replicationReady: true })).replication;
+  assert.equal(task.id, hash);
+  assert.equal(task.peerId, body(0).peerId);
+  assert.deepEqual(task.addresses, body(0).addresses);
 });

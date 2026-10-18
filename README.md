@@ -103,3 +103,5 @@ Fontes técnicas: [transações node-postgres](https://node-postgres.com/feature
 Atualize a API no GitHub e faça o deploy no EasyPanel antes de distribuir o novo desktop.
 Não são necessárias novas variáveis de ambiente, serviço de e-mail ou migração de schema.
 Depois, recompile o desktop para incluir o comando nativo `account_register`.
+
+A descoberta e a replicação distribuem os endereços anunciados dos peers entre todas as contas autenticadas, inclusive endereços de rede local. A conexão direta ainda depende de um endereço alcançável; esta regra não implementa travessia de NAT/CGNAT. Playlists e sessões continuam isoladas por conta.

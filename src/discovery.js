@@ -34,7 +34,7 @@ export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
     let seen = 0;
     for (const [peerId, peer] of peers) {
       if (peerId === body.peerId) continue;
-      const visible = peer.addresses.filter(a => !a.local || peer.account === session.account_id).map(a => a.address);
+      const visible = peer.addresses.map(a => a.address);
       if (!visible.length) continue;
       const candidate = { peerId, addresses: visible };
       const slot = randomInt(++seen);
