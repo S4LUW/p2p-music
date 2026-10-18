@@ -33,6 +33,7 @@ export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
     const candidates = [];
     let seen = 0;
     for (const [peerId, peer] of peers) {
+      if (body.onDemand === true) break;
       if (peerId === body.peerId) continue;
       const visible = peer.addresses.map(a => a.address);
       if (!visible.length) continue;
@@ -47,5 +48,23 @@ export function createDiscovery({ now = Date.now, capacity = 10000 } = {}) {
     const owner = `${session.account_id}:${session.device_id}`;
     for (const [id, peer] of peers) if (peer.owner === owner) peers.delete(id);
   }
-  return { heartbeat, remove };
+  function sources(body) {
+    if (!body || !Array.isArray(body.ids) || !body.ids.length || body.ids.length > 64 || body.ids.some(id => typeof id !== 'string' || !/^[a-f0-9]{64}$/.test(id))) throw problem(400, 'Informe até 64 hashes válidos.');
+    if (body.excludePeer !== undefined && (typeof body.excludePeer !== 'string' || !/^12D3KooW[1-9A-HJ-NP-Za-km-z]{44}$/.test(body.excludePeer))) throw problem(400, 'Peer inválido.');
+    prune();
+    const files = Object.fromEntries([...new Set(body.ids)].map(id => [id, { count: 0, providers: [] }]));
+    // One bounded pass over live peers, without connecting or reading PostgreSQL inventories.
+    for (const [peerId, peer] of peers) {
+      if (peerId === body.excludePeer || !peer.addresses.length) continue;
+      for (const id of Object.keys(files)) if (peer.inventory?.has(id)) {
+        const file = files[id]; file.count++;
+        const provider = { peerId, addresses: peer.addresses.map(a => a.address) };
+        const slot = randomInt(file.count);
+        if (file.providers.length < 4) file.providers.push(provider);
+        else if (slot < 4) file.providers[slot] = provider;
+      }
+    }
+    return { files, ttlSeconds: 30 };
+  }
+  return { heartbeat, remove, sources };
 }

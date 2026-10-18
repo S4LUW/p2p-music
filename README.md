@@ -105,3 +105,9 @@ Não são necessárias novas variáveis de ambiente, serviço de e-mail ou migra
 Depois, recompile o desktop para incluir o comando nativo `account_register`.
 
 A descoberta e a replicação distribuem os endereços anunciados dos peers entre todas as contas autenticadas, inclusive endereços de rede local. A conexão direta ainda depende de um endereço alcançável; esta regra não implementa travessia de NAT/CGNAT. Playlists e sessões continuam isoladas por conta.
+
+## Fontes e conexões sob demanda
+
+`POST /v1/network/sources` exige autenticação e aceita `{ "ids": ["SHA256"], "excludePeer": "PeerId opcional" }`, até 64 hashes por lote. Retorna `{ files: { SHA256: { count, providers: [{ peerId, addresses }] } }, ttlSeconds: 30 }`. Conta anúncios ativos (TTL de presença: 180 segundos), com até quatro candidatos por arquivo. Não abre conexões nem transfere áudio. Inventários permanecem na memória; a validação de sessão usa PostgreSQL normalmente.
+
+O heartbeat com `onDemand: true` não retorna candidatos para conexão antecipada. Tarefas de replicação continuam sendo distribuídas sob os limites existentes. Clientes antigos permanecem compatíveis. Publique esta API antes de distribuir o desktop com conexões sob demanda; não há migração de banco.

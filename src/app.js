@@ -75,6 +75,7 @@ export function createApp(db, { origins = [], loginLimit = 20, registerLimit = 5
         rate(`presence:${session.account_id}:${session.device_id}`, 3);
         send(200, discovery.heartbeat(session, await readJson(req, 1024 * 1024))); return;
       }
+      if (route === 'POST /v1/network/sources') { send(200, discovery.sources(await readJson(req, 16384))); return; }
       if (route === 'GET /v1/me') { send(200, { accountId: session.account_id, deviceId: session.device_id }); return; }
       if (route === 'POST /v1/auth/logout') {
         discovery.remove(session);

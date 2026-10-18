@@ -61,6 +61,14 @@ test('discovery requires authentication and returns bounded presence without acc
   assert.deepEqual(presence.body.peers, []);
   assert.equal(presence.body.ttlSeconds, 180);
 });
+test('source lookup is authenticated, bounded and returns only requested file metadata', async () => {
+ assert.equal((await request('/v1/network/sources',{ids:['a'.repeat(64)]},null)).status,401);
+ assert.equal((await request('/v1/network/sources',{ids:['bad']})).status,400);
+ const result = await request('/v1/network/sources',{ids:['f'.repeat(64)]});
+ assert.equal(result.status,200); assert.deepEqual(result.body.files['f'.repeat(64)],{count:0,providers:[]});
+ assert(!JSON.stringify(result.body).includes('accountId'));
+});
+
 before(async () => {
   if (process.env.TEST_DATABASE_URL) {
     const schema = `test_${randomUUID().replaceAll('-', '')}`;
