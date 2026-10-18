@@ -44,7 +44,7 @@ export function createReplication(peers, now = Date.now) {
     for (const [id, items] of candidates) {
       for (const source of items) {
         if ((sending.get(source.peerId) ?? 0) >= 2) continue;
-        const addresses = source.peer.addresses.map(a => a.address);
+        const addresses = source.peer.addresses.filter(a => !a.circuit || body.relaySupport === true).map(a => a.address);
         if (!addresses.length) continue;
         const task = { id, size: source.size, peerId: source.peerId, addresses };
         leases.set(peerId, { ...task, until: time + 300000 });

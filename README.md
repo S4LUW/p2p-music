@@ -111,3 +111,9 @@ A descoberta e a replicação distribuem os endereços anunciados dos peers entr
 `POST /v1/network/sources` exige autenticação e aceita `{ "ids": ["SHA256"], "excludePeer": "PeerId opcional" }`, até 64 hashes por lote. Retorna `{ files: { SHA256: { count, providers: [{ peerId, addresses }] } }, ttlSeconds: 30 }`. Conta anúncios ativos (TTL de presença: 180 segundos), com até quatro candidatos por arquivo. Não abre conexões nem transfere áudio. Inventários permanecem na memória; a validação de sessão usa PostgreSQL normalmente.
 
 O heartbeat com `onDemand: true` não retorna candidatos para conexão antecipada. Tarefas de replicação continuam sendo distribuídas sob os limites existentes. Clientes antigos permanecem compatíveis. Publique esta API antes de distribuir o desktop com conexões sob demanda; não há migração de banco.
+
+## Relay para redes diferentes
+
+O serviço opcional em [`relay/`](relay/README.md) permite transferências quando a conexão direta falha por NAT/CGNAT. Ele é implantado separadamente da API, no mesmo servidor, com TCP 4001 publicado e volume persistente `/data`.
+
+Depois de subir o relay, copie a linha `P2P_MUSIC_RELAYS=...` dos logs para as variáveis da API e reimplante. A API aceita até dois endereços IPv4/TCP separados por vírgula. A configuração vazia mantém apenas conexão direta. Atualize os dois desktops para habilitar o fallback. Não há migração de banco de dados nesta alteração.

@@ -5,9 +5,9 @@ import { problem, pull, push } from './sync.js';
 import { createDiscovery } from './discovery.js';
 import { catalogRead, catalogWrite } from './catalog.js';
 
-export function createApp(db, { origins = [], loginLimit = 20, registerLimit = 5 } = {}) {
+export function createApp(db, { origins = [], loginLimit = 20, registerLimit = 5, relays = [] } = {}) {
   const buckets = new Map();
-  const discovery = createDiscovery();
+  const discovery = createDiscovery({relays});
   let activeLogins = 0;
   function rate(key, limit) {
     const now = Date.now();

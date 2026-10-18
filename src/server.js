@@ -1,7 +1,7 @@
 import { createDb } from './db.js';
 import { createApp } from './app.js';
 const db = createDb();
-const app = createApp(db, { origins: (process.env.ALLOWED_ORIGINS ?? 'http://tauri.localhost,https://tauri.localhost,tauri://localhost').split(',').map(s => s.trim()).filter(Boolean) });
+const app = createApp(db, { relays: (process.env.P2P_MUSIC_RELAYS ?? '').split(',').map(s => s.trim()).filter(Boolean), origins: (process.env.ALLOWED_ORIGINS ?? 'http://tauri.localhost,https://tauri.localhost,tauri://localhost').split(',').map(s => s.trim()).filter(Boolean) });
 await db.query('SELECT name FROM schema_migrations LIMIT 1');
 const port = Number(process.env.PORT ?? 3000);
 app.listen(port, process.env.HOST ?? '0.0.0.0', () => console.log(`P2P Music API listening on ${port}`));
