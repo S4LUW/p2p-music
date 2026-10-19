@@ -16,7 +16,7 @@ export async function verifyPassword(password, encoded) {
   return actual.length === expected.length && timingSafeEqual(actual, expected);
 }
 export async function createAccount(db, input) {
-  const { email, password } = credentials.parse(input);
+  const { email, password } = credentials.strict().parse(input);
   const id = randomUUID();
   await db.query('INSERT INTO accounts(id,email,password_hash) VALUES($1,$2,$3)', [id, email, await hashPassword(password)]);
   return id;

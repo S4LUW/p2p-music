@@ -29,7 +29,7 @@ export async function catalogRead(db, accountId, params) {
 export async function catalogWrite(db, accountId, input) {
   return db.transaction(async client => {
     const account = (await client.query('SELECT is_curator FROM accounts WHERE id=$1 FOR SHARE',[accountId])).rows[0];
-    if (!account?.is_curator) throw problem(403,'Esta conta não tem permissão de curadoria.');
+    if (account?.is_curator !== true) throw problem(403,'Esta conta não tem permissão de curadoria.');
     const data = write.parse(input);
     const table = { artist:'catalog_artists', album:'catalog_albums', track:'catalog_tracks' }[data.kind];
     const current = (await client.query(`SELECT * FROM ${table} WHERE id=$1 FOR UPDATE`,[data.id])).rows[0];

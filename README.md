@@ -117,3 +117,7 @@ O heartbeat com `onDemand: true` não retorna candidatos para conexão antecipad
 O serviço opcional em [`relay/`](relay/README.md) permite transferências quando a conexão direta falha por NAT/CGNAT. Ele é implantado separadamente da API, no mesmo servidor, com TCP 4001 publicado e volume persistente `/data`.
 
 Depois de subir o relay, copie a linha `P2P_MUSIC_RELAYS=...` dos logs para as variáveis da API e reimplante. A API aceita até dois endereços IPv4/TCP separados por vírgula. A configuração vazia mantém apenas conexão direta. Atualize os dois desktops para habilitar o fallback. Não há migração de banco de dados nesta alteração.
+
+## Segurança de curadores
+
+Consulte [SECURITY_CURATORS.md](SECURITY_CURATORS.md) antes de alterar permissões. `npm run curator:set` agora exige `ADMIN_DATABASE_URL` temporária, `CURATOR_EMAIL`, `CURATOR_ENABLED` e `CURATOR_REASON`. Mudanças reais encerram as sessões anteriores e são auditadas. Para separar o usuário de banco da API do administrador, use o roteiro e `scripts/runtime-role.sql`; após migrar administrativamente, a API restrita deve usar `MIGRATE_ON_START=false`.

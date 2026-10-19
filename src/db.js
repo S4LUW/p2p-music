@@ -1,7 +1,7 @@
 import pg from 'pg';
-export function createDb() {
-  if (!process.env.DATABASE_URL) throw new Error('Configure DATABASE_URL.');
-  const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
+export function createDb({connectionString = process.env.DATABASE_URL} = {}) {
+  if (!connectionString) throw new Error('Configure DATABASE_URL.');
+  const pool = new pg.Pool({ connectionString, max: 5, connectionTimeoutMillis: 5000, idleTimeoutMillis: 30000, statement_timeout: 10000 });
   pool.on('error', () => console.error('Database pool connection failed'));
   return {
     query: (sql, params) => pool.query(sql, params),
