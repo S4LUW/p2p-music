@@ -3,16 +3,21 @@ import { problem } from './sync.js';
 import { catalogSearch } from './catalog-search.js';
 
 const text = z.string().trim().min(1).max(200);
+const illustrationUrl = z.string().trim().max(2048).refine(value => {
+  if (value === '') return true;
+  try { const url = new URL(value); return url.protocol === 'https:' && !!url.hostname && !url.username && !url.password; }
+  catch { return false; }
+}, 'Informe uma URL HTTPS de imagem, sem usuário ou senha.').nullable().transform(value => value || null).optional();
 const base = { id: z.uuid(), version: z.number().int().min(0).max(2147483646) };
 const file = z.object({ id: z.string().regex(/^[a-f0-9]{64}$/), name: z.string().min(1).max(255), size: z.number().int().min(1).max(104857600) }).strict();
 const write = z.discriminatedUnion('kind', [
-  z.object({ ...base, kind: z.literal('artist'), name: text, biography: z.string().trim().max(4000) }).strict(),
-  z.object({ ...base, kind: z.literal('album'), artistId: z.uuid(), title: text, releaseYear: z.number().int().min(1000).max(2200).nullable(), genre: z.string().trim().max(100) }).strict(),
+  z.object({ ...base, kind: z.literal('artist'), illustrationUrl, name: text, biography: z.string().trim().max(4000) }).strict(),
+  z.object({ ...base, kind: z.literal('album'), illustrationUrl, artistId: z.uuid(), title: text, releaseYear: z.number().int().min(1000).max(2200).nullable(), genre: z.string().trim().max(100) }).strict(),
   z.object({ ...base, kind: z.literal('track'), albumId: z.uuid(), title: text, discNumber: z.number().int().min(1).max(99), trackNumber: z.number().int().min(1).max(999), durationSeconds: z.number().int().min(1).max(86400).nullable(), file }).strict(),
 ]);
 const queries = {
- artist: `SELECT id,name,biography,version FROM catalog_artists`,
- album: `SELECT id,artist_id AS "artistId",title,release_year AS "releaseYear",genre,version FROM catalog_albums`,
+ artist: `SELECT id,name,biography,illustration_url AS "illustrationUrl",version FROM catalog_artists`,
+ album: `SELECT id,artist_id AS "artistId",title,release_year AS "releaseYear",genre,illustration_url AS "illustrationUrl",version FROM catalog_albums`,
  track: `SELECT id,album_id AS "albumId",title,disc_number AS "discNumber",track_number AS "trackNumber",duration_seconds AS "durationSeconds",json_build_object('id',file_hash,'name',file_name,'size',file_size) AS file,version FROM catalog_tracks`,
 };
 export async function catalogRead(db, accountId, params) {
@@ -38,6 +43,10 @@ export async function catalogWrite(db, accountId, input) {
     if (current && ((data.kind === 'album' && current.artist_id !== data.artistId) || (data.kind === 'track' && current.album_id !== data.albumId))) throw problem(400,'O vínculo com artista ou álbum não pode ser alterado.');
     const columns = data.kind === 'artist' ? ['name','biography'] : data.kind === 'album' ? ['artist_id','title','release_year','genre'] : ['album_id','title','disc_number','track_number','duration_seconds','file_hash','file_name','file_size'];
     const values = data.kind === 'artist' ? [data.name,data.biography] : data.kind === 'album' ? [data.artistId,data.title,data.releaseYear,data.genre] : [data.albumId,data.title,data.discNumber,data.trackNumber,data.durationSeconds,data.file.id,data.file.name,data.file.size];
+    // Older desktop versions omit the field: preserve an existing illustration.
+    if (data.kind !== 'track' && data.illustrationUrl !== undefined) {
+      columns.push('illustration_url'); values.push(data.illustrationUrl);
+    }
     try {
       if (current) await client.query(`UPDATE ${table} SET ${columns.map((c,i)=>`${c}=$${i+2}`).join(',')},version=version+1,updated_by=$${values.length+2},updated_at=now() WHERE id=$1`,[data.id,...values,accountId]);
       else await client.query(`INSERT INTO ${table}(id,${columns.join(',')},updated_by) VALUES(${[data.id,...values,accountId].map((_,i)=>`$${i+1}`).join(',')})`,[data.id,...values,accountId]);

@@ -19,8 +19,8 @@ export async function catalogSearch(db, query, offset) {
       SELECT * FROM ranked ORDER BY relevance,category,label,id LIMIT 51 OFFSET $2
     )
     SELECT p.kind,
-      json_build_object('id',r.id,'name',r.name,'biography',r.biography,'version',r.version) AS artist,
-      CASE WHEN a.id IS NOT NULL THEN json_build_object('id',a.id,'artistId',a.artist_id,'title',a.title,'releaseYear',a.release_year,'genre',a.genre,'version',a.version) END AS album,
+      json_build_object('id',r.id,'name',r.name,'biography',r.biography,'illustrationUrl',r.illustration_url,'version',r.version) AS artist,
+      CASE WHEN a.id IS NOT NULL THEN json_build_object('id',a.id,'artistId',a.artist_id,'title',a.title,'releaseYear',a.release_year,'genre',a.genre,'illustrationUrl',a.illustration_url,'version',a.version) END AS album,
       CASE WHEN t.id IS NOT NULL THEN json_build_object('id',t.id,'albumId',t.album_id,'title',t.title,'discNumber',t.disc_number,'trackNumber',t.track_number,'durationSeconds',t.duration_seconds,'version',t.version,
         'file',json_build_object('id',t.file_hash,'name',t.file_name,'size',t.file_size)) END AS track
     FROM page p JOIN catalog_artists r ON r.id=p.artist_id LEFT JOIN catalog_albums a ON a.id=p.album_id LEFT JOIN catalog_tracks t ON t.id=p.track_id
